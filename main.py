@@ -34,8 +34,12 @@ def handle_all_messages(message):
     try:
         # Colab'dagi kabi foydalanuvchi yozgan matnni to'g'ridan-to'g'ri Gemini'ga yuboramiz
         response = client.models.generate_content(
-            model='gemini-3.8-flash',
-            contents=message.text,
+    model="gemini-3.8-flash",
+    contents=message_text,
+    config={
+        "system_instruction": "Sen K-pop bo'yicha do'stona va quvnoq yordamchisan. Har doim FAQAT o'zbek tilida javob bergin, javoblaringga chiroyli emoji'lar (✨💖🌸 va hokazo) qo'shib, samimiy yozgin."
+    }
+)
         )
         bot.reply_to(message, response.text)
     except Exception as e:
