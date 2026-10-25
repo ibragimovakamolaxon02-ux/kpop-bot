@@ -1,55 +1,46 @@
 import os
-import time
+import threading
+from flask import Flask
 import telebot
 from google import genai
 
-# Tokenlarni xavfsiz o'zgaruvchilardan yoki to'g'ridan-to'g'ri olamiz
-TELEGRAM_TOKEN = os.environ.get("TELEGRAM_TOKEN", "8703749064:AAFKgjLG8qikIqnEsEgM07kKCtljl7idGc")
-GEMINI_KEY = os.environ.get("GEMINI_KEY", "AQ.Ab8RN6KY6kx38KRU-jr892ARgjd7nsMK4q1n43xY9kFVPqcy-A")
+# 1. Kichik veb-server (Render o'chib qolmasligi uchun)
+app = Flask(__name__)
 
-ai_client = genai.Client(api_key=GEMINI_KEY)
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
+@app.route('/')
+def home():
+    return "Bot is alive!"
 
-SYSTEM_INSTRUCTION = """
-Siz K-pop bo'yicha mutaxassis va do'stona AI yordamchisiz. 
-Foydalanuvchilar K-pop guruhlari (BLACKPINK, BTS, Stray Kids va barcha boshqa guruhlar), 
-ularning a'zolari va qo'shiqlari haqida so'rashadi.
-Har doim xushfe'l, samimiy va chiroyli emojilar ishlatib o'zbek tilida javob bering.
-"""
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
+
+# Veb-serverni alohida oqimda ishga tushiramiz
+threading.Thread(target=run_flask, daemon=True).start()
+
+# 2. Telegram bot va Gemini sozlamalari
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+bot = telebot.TeleBot(TOKEN, threaded=True, num_threads=4)
+
+# Gemini API mijozini sozlash (API kalit Render muhitidan olinadi)
+client = genai.Client()
 
 @bot.message_handler(commands=['start'])
-def start_message(message):
-    bot.send_message(message.chat.id, "Salom! 🖤🩷 Men sening K-pop AI do'stingman! K-pop bo'yicha xohlagan savolingni berishing mumkin!")
+def send_welcome(message):
+    bot.reply_to(message, "Salom! Men sizning K-pop AI do'stingizman! K-pop bo'yicha istalgan savolingizni berishingiz mumkin! 💖")
 
-@bot.message_handler(content_types=['text'])
-def send_ai_response(message):
-    for attempt in range(3):
-        try:
-            response = ai_client.models.generate_content(
-                model='gemini-2.0-flash',
-                contents=message.text,
-                config={'system_instruction': SYSTEM_INSTRUCTION}
-            )
-            bot.send_message(message.chat.id, response.text)
-            break
-        except Exception as e:
-            if "503" in str(e) and attempt < 2:
-                time.sleep(2)
-                continue
-            else:
-                bot.send_message(message.chat.id, "Google serveri hozircha biroz band. Iltimos, bir ozdan so'ng qayta yozib ko'ring! 🖤🩷")
-                break
+@bot.message_handler(func=lambda message: True)
+def handle_all_messages(message):
+    try:
+        # Colab'dagi kabi foydalanuvchi yozgan matnni to'g'ridan-to'g'ri Gemini'ga yuboramiz
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=message.text,
+        )
+        bot.reply_to(message, response.text)
+    except Exception as e:
+        bot.reply_to(message, f"Xatolik yuz berdi: {e}")
 
 if __name__ == "__main__":
-    try:
-        bot.remove_webhook()
-    except:
-        pass
-    
     print("K-pop bot ishga tushdi!")
-    
-    while True:
-        try:
-            bot.polling(none_stop=True, interval=0, timeout=20)
-        except Exception as e:
-            time.sleep(3)
+    bot.infinity_polling(skip_pending=True)
