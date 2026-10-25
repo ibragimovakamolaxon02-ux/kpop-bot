@@ -27,14 +27,14 @@ client = genai.Client()
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "Salom! Men sizning K-pop AI do'stingizman! K-pop bo'yicha istalgan savolingizni berishingiz mumkin! 💖")
+    bot.reply_to(message, "Salom! Men sizning K-pop AI do'stingizman! K-pop bo'yicha istalgan savolingizni berishingiz mumkin! 🖤💖")
 
 @bot.message_handler(func=lambda message: True)
 def handle_all_messages(message):
     try:
         # Colab'dagi kabi foydalanuvchi yozgan matnni to'g'ridan-to'g'ri Gemini'ga yuboramiz
         response = client.models.generate_content(
-            model='gemini-2.5-flash',
+            model='gemini-3.8-flash',
             contents=message.text,
         )
         bot.reply_to(message, response.text)
